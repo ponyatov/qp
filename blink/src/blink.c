@@ -16,10 +16,13 @@
 * for more details.
 */
 /*$endhead${src::blink.c} ##################################################*/
+#include "qpc.h"
 
 // QPC blink sample (c) Dmitry Ponyatov <dponyatov@gmail.com>
 
 // кириллица
 
 int main() {
+    QF_init();
+    return QF_run();
 }

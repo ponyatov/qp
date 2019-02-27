@@ -43,13 +43,37 @@ QTimeEvt_armX(&amp;me-&gt;tocker, BSP_TICKS_PER_SEC/2, BSP_TICKS_PER_SEC/2);</ac
  </package>
  <directory name="src">
   <file name="blink.c">
-   <text>
+   <text>#include &quot;qpc.h&quot;
+
 // QPC blink sample (c) Dmitry Ponyatov &lt;dponyatov@gmail.com&gt;
 
 // кириллица
 
 int main() {
+    QF_init();
+    return QF_run();
 }
+</text>
+  </file>
+ </directory>
+ <directory name=".">
+  <file name="Makefile">
+   <text># QPC blink sample (c) Dmitry Ponyatov &lt;dponyatov@gmail.com&gt;
+
+MODULE = blink
+QPORT += posix-qv
+
+EXE = $(MODULE).exe
+
+all: ./$(EXE)
+    ./$(EXE)
+    
+QPC ?= $(HOME)/qm/qpc
+
+CFLAGS += -I$(QPC)/include -I$(QPC)/ports/$(QPORT)
+
+./$(EXE): src/$(MODULE).c $(QPC)/ports/$(QPORT)/qf-port.c
+    $(CC) $(CFLAGS) -o $@ $^
 </text>
   </file>
  </directory>
