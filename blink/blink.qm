@@ -6,12 +6,10 @@
    <attribute name="ticker" type="QTimeEvt" visibility="0x02" properties="0x00"/>
    <statechart>
     <initial target="../1">
-     <action>// arms time event
-// 1/2 expiration time
-// repeat every 1/2
-QTimeEvt_armX(&amp;me-&gt;tocker, BSP_TICKS_PER_SEC/2, BSP_TICKS_PER_SEC/2);</action>
+     <action>// arms time event: 1/2s expiration time repeat every 1/2s
+QTimeEvt_armX(&amp;me-&gt;ticker, BSP_TICKS_PER_SEC/2, BSP_TICKS_PER_SEC/2);</action>
      <initial_glyph conn="3,11,5,0,23,5">
-      <action box="0,-2,10,2"/>
+      <action box="1,-7,63,7"/>
      </initial_glyph>
     </initial>
     <state name="OFF">
@@ -43,14 +41,60 @@ QTimeEvt_armX(&amp;me-&gt;tocker, BSP_TICKS_PER_SEC/2, BSP_TICKS_PER_SEC/2);</ac
  </package>
  <directory name="src">
   <file name="blink.c">
-   <text>#include &quot;qpc.h&quot;
-
+   <text>
 // QPC blink sample (c) Dmitry Ponyatov &lt;dponyatov@gmail.com&gt;
+
+#define BSP_TICKS_PER_SEC 100
+
+#include &quot;qpc.h&quot;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+void BSP_ledOff(void) { printf(&quot;LED OFF\n&quot;); }
+void BSP_ledOn (void) { printf(&quot;LED ON\n&quot; ); }
+
+void QF_onStartup(void) { printf(&quot;STARTUP\n&quot;); }
+void QF_onCleanup(void) { printf(&quot;CLEANUP\n&quot;); }
+
+void QF_onClockTick(void) { QF_TICK_X(0U, (void *)0); }
+
+void Q_onAssert(char const * const module, int loc) {
+    fprintf(stderr, &quot;Assertion failed in %s:%d&quot;, module, loc); exit(-1); }
+
+$declare${AOs::Blinky}
+
+enum BlinkySignals { TIMEOUT_SIG = Q_USER_SIG, MAX_SIG };
+
+static Blinky l_blinky;                            // singleton instance
+QActive * const AO_Blinky = &amp;l_blinky.super;
+
+static void Blinky_ctor(void) {
+    // create instance
+    Blinky *me = (Blinky *)AO_Blinky;
+    // superclass constructor
+    QActive_ctor(&amp;me-&gt;super, Q_STATE_CAST(&amp;Blinky_initial));
+    // class fields constructors
+    QTimeEvt_ctorX(&amp;me-&gt;ticker, &amp;me-&gt;super, TIMEOUT_SIG, 0U);
+}
+
+static QEvt const *blinky_queueSto[10];    // statically allocated queue buffer
+
+$define${AOs::Blinky}
 
 // кириллица
 
 int main() {
+    // qp init
     QF_init();
+    // constructors must be called first
+    Blinky_ctor();
+    // start QActives
+    QACTIVE_START(AO_Blinky,
+        1U,                                        /* priority */
+        blinky_queueSto, Q_DIM(blinky_queueSto),
+        (void *)0, 0U,                             /* no stack */
+        (QEvt *)0);                                /* no initialization event */
+    // qp event loop
     return QF_run();
 }
 </text>
@@ -70,10 +114,14 @@ all: ./$(EXE)
     
 QPC ?= $(HOME)/qm/qpc
 
-CFLAGS += -I$(QPC)/include -I$(QPC)/ports/$(QPORT)
+CFLAGS += -I$(QPC)/include -I$(QPC)/src -I$(QPC)/ports/$(QPORT)
 
-./$(EXE): src/$(MODULE).c $(QPC)/ports/$(QPORT)/qf-port.c
-    $(CC) $(CFLAGS) -o $@ $^
+QF  = $(QPC)/src/qf/qf_act.c $(QPC)/src/qf/qf_actq.c $(QPC)/src/qf/qf_qact.c $(QPC)/src/qf/qf_qeq.c 
+QF += $(QPC)/src/qf/qf_time.c $(QPC)/src/qf/qf_dyn.c $(QPC)/src/qf/qf_mem.c
+QF += $(QPC)/src/qf/qep_hsm.c
+
+./$(EXE): src/$(MODULE).c $(QPC)/ports/$(QPORT)/qf_port.c $(QF)
+    $(CC) $(CFLAGS) -o $@ $^ -lpthread
 </text>
   </file>
  </directory>

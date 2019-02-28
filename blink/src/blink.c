@@ -16,13 +16,132 @@
 * for more details.
 */
 /*$endhead${src::blink.c} ##################################################*/
-#include "qpc.h"
 
 // QPC blink sample (c) Dmitry Ponyatov <dponyatov@gmail.com>
+
+#define BSP_TICKS_PER_SEC 100
+
+#include "qpc.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+void BSP_ledOff(void) { printf("LED OFF\n"); }
+void BSP_ledOn (void) { printf("LED ON\n" ); }
+
+void QF_onStartup(void) { printf("STARTUP\n"); }
+void QF_onCleanup(void) { printf("CLEANUP\n"); }
+
+void QF_onClockTick(void) { QF_TICK_X(0U, (void *)0); }
+
+void Q_onAssert(char const * const module, int loc) {
+    fprintf(stderr, "Assertion failed in %s:%d", module, loc); exit(-1); }
+
+/*$declare${AOs::Blinky} ###################################################*/
+/*${AOs::Blinky} ...........................................................*/
+typedef struct {
+/* protected: */
+    QActive super;
+
+/* private: */
+    QTimeEvt ticker;
+} Blinky;
+
+/* protected: */
+static QState Blinky_initial(Blinky * const me, QEvt const * const e);
+static QState Blinky_OFF(Blinky * const me, QEvt const * const e);
+static QState Blinky_ON(Blinky * const me, QEvt const * const e);
+/*$enddecl${AOs::Blinky} ###################################################*/
+
+enum BlinkySignals { TIMEOUT_SIG = Q_USER_SIG, MAX_SIG };
+
+static Blinky l_blinky;                            // singleton instance
+QActive * const AO_Blinky = &l_blinky.super;
+
+static void Blinky_ctor(void) {
+    // create instance
+    Blinky *me = (Blinky *)AO_Blinky;
+    // superclass constructor
+    QActive_ctor(&me->super, Q_STATE_CAST(&Blinky_initial));
+    // class fields constructors
+    QTimeEvt_ctorX(&me->ticker, &me->super, TIMEOUT_SIG, 0U);
+}
+
+static QEvt const *blinky_queueSto[10];    // statically allocated queue buffer
+
+/*$skip${QP_VERSION} #######################################################*/
+/* Check for the minimum required QP version */
+#if (QP_VERSION < 640U) || (QP_VERSION != ((QP_RELEASE^4294967295U) % 0x3E8U))
+#error qpc version 6.4.0 or higher required
+#endif
+/*$endskip${QP_VERSION} ####################################################*/
+/*$define${AOs::Blinky} ####################################################*/
+/*${AOs::Blinky} ...........................................................*/
+/*${AOs::Blinky::SM} .......................................................*/
+static QState Blinky_initial(Blinky * const me, QEvt const * const e) {
+    /*${AOs::Blinky::SM::initial} */
+    // arms time event: 1/2s expiration time repeat every 1/2s
+    QTimeEvt_armX(&me->ticker, BSP_TICKS_PER_SEC/2, BSP_TICKS_PER_SEC/2);
+    return Q_TRAN(&Blinky_OFF);
+}
+/*${AOs::Blinky::SM::OFF} ..................................................*/
+static QState Blinky_OFF(Blinky * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        /*${AOs::Blinky::SM::OFF} */
+        case Q_ENTRY_SIG: {
+            BSP_ledOff();
+            status_ = Q_HANDLED();
+            break;
+        }
+        /*${AOs::Blinky::SM::OFF::TIMEOUT} */
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Blinky_ON);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&QHsm_top);
+            break;
+        }
+    }
+    return status_;
+}
+/*${AOs::Blinky::SM::ON} ...................................................*/
+static QState Blinky_ON(Blinky * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        /*${AOs::Blinky::SM::ON} */
+        case Q_ENTRY_SIG: {
+            BSP_ledOn();
+            status_ = Q_HANDLED();
+            break;
+        }
+        /*${AOs::Blinky::SM::ON::TIMEOUT} */
+        case TIMEOUT_SIG: {
+            status_ = Q_TRAN(&Blinky_OFF);
+            break;
+        }
+        default: {
+            status_ = Q_SUPER(&QHsm_top);
+            break;
+        }
+    }
+    return status_;
+}
+/*$enddef${AOs::Blinky} ####################################################*/
 
 // кириллица
 
 int main() {
+    // qp init
     QF_init();
+    // constructors must be called first
+    Blinky_ctor();
+    // start QActives
+    QACTIVE_START(AO_Blinky,
+        1U,                                        /* priority */
+        blinky_queueSto, Q_DIM(blinky_queueSto),
+        (void *)0, 0U,                             /* no stack */
+        (QEvt *)0);                                /* no initialization event */
+    // qp event loop
     return QF_run();
 }
