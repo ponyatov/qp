@@ -27,3 +27,12 @@
 > This deeper understanding will allow you to use the C language more efficiently and with greater confidence. You will gain understanding not just what your program does, but also how the C statements translate to machine instructions and get a sense for how fast the processor can execute them. Also, you will get some familiarity with the ARM Cortex-M core, which will look really good on your resume.
 
 Это более глубокое понимание позволит вам использовать язык C более эффективно и с большей уверенностью. Вы поймёте не только что делает ваша программа, но и то, как операторы C преобразуются в машинные инструкции, и поймете, насколько быстро процессор может их выполнять. Кроме того, вы познакомитесь с ядром ARM Cortex-M, что будет очень хорошо смотреться в вашем резюме.
+
+> The course is just beginning, so it's a good time to join. Stay tuned...
+
+Курс только начинается, так что самое время присоединиться. Следите за обновлениями...
+
+## About the Instructor
+
+![[Miro Samek]]
+
